@@ -1,4 +1,4 @@
-package com.github.adrianmuino.simple_java_programs;
+package com.github.adrianmuino.advanced_java_programs;
 
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
@@ -13,11 +13,11 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class HighThroughputProducerWithSafeGuard 
+public class SafeProducer 
 {
     public static void main( String[] args ) throws InterruptedException, ExecutionException
     {
-        final Logger logger = LoggerFactory.getLogger(HighThroughputProducerWithSafeGuard.class);
+        final Logger logger = LoggerFactory.getLogger(SafeProducer.class);
         String bootStrapServers = "ubuntu-vm:9092";
 
         // create producer properties
@@ -33,22 +33,10 @@ public class HighThroughputProducerWithSafeGuard
         properties.setProperty(ProducerConfig.RETRIES_CONFIG, Integer.toString(Integer.MAX_VALUE));
         properties.setProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "5"); // kafka 2.0 >= 1.1 so we can keep this as 5. Use 1 otherwise.
 
-        // high throughput producer properties
-        properties.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
-        properties.setProperty(ProducerConfig.LINGER_MS_CONFIG, "20");
-        properties.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, Integer.toString(32*1024)); // 32 KB batch size
-
-        // safeguard properties in case brokers are overwhelmed by producer msgs
-
-        /* Size of producer send buffer. If buffer gets full, all send() calls will block until response or max.block.ms */ 
-        properties.setProperty(ProducerConfig.BUFFER_MEMORY_CONFIG, Integer.toString(32*1024));
-        /* If the producer send buffer gets full, it will wait up to max.block.ms and then throw an exception */
-        properties.setProperty(ProducerConfig.MAX_BLOCK_MS_CONFIG, "60000");
-
         // create the producer
         KafkaProducer<String, String> producer = new KafkaProducer<>(properties);
 
-        for(int i=0; i<Integer.MAX_VALUE; i++){
+        for(int i=0; i<10; i++){
             String topic = "second_topic";
             String value = "hello world" + Integer.toString(i);
             String key = "id_" + Integer.toString(i); // send with key will always hit same partition

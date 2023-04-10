@@ -1,4 +1,4 @@
-package com.github.adrianmuino.simple_java_programs;
+package com.github.adrianmuino.advanced_java_programs;
 
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
@@ -13,11 +13,11 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class HighThroughputProducer 
+public class HighThroughputProducerWithSafeGuard 
 {
     public static void main( String[] args ) throws InterruptedException, ExecutionException
     {
-        final Logger logger = LoggerFactory.getLogger(HighThroughputProducer.class);
+        final Logger logger = LoggerFactory.getLogger(HighThroughputProducerWithSafeGuard.class);
         String bootStrapServers = "ubuntu-vm:9092";
 
         // create producer properties
@@ -37,6 +37,13 @@ public class HighThroughputProducer
         properties.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
         properties.setProperty(ProducerConfig.LINGER_MS_CONFIG, "20");
         properties.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, Integer.toString(32*1024)); // 32 KB batch size
+
+        // safeguard properties in case brokers are overwhelmed by producer msgs
+
+        /* Size of producer send buffer. If buffer gets full, all send() calls will block until response or max.block.ms */ 
+        properties.setProperty(ProducerConfig.BUFFER_MEMORY_CONFIG, Integer.toString(32*1024));
+        /* If the producer send buffer gets full, it will wait up to max.block.ms and then throw an exception */
+        properties.setProperty(ProducerConfig.MAX_BLOCK_MS_CONFIG, "60000");
 
         // create the producer
         KafkaProducer<String, String> producer = new KafkaProducer<>(properties);
