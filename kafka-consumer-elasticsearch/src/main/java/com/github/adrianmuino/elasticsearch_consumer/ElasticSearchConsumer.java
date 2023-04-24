@@ -26,6 +26,8 @@ import org.elasticsearch.common.xcontent.XContentType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.gson.JsonParser;
+
 public class ElasticSearchConsumer
 {
     public static RestHighLevelClient createClient(){
@@ -68,6 +70,13 @@ public class ElasticSearchConsumer
 
       return consumer;
     }
+
+    private static String extractIdFromApiResource(String json){
+      // gson library
+      return JsonParser.parseString(json).getAsJsonObject()
+              .get("id")
+              .getAsString();
+    }
     public static void main( String[] args ) throws IOException
     {
         Logger logger = LoggerFactory.getLogger(ElasticSearchConsumer.class.getName());
@@ -79,6 +88,14 @@ public class ElasticSearchConsumer
         while(true) {
           ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
           for (ConsumerRecord<String, String> record : records) {
+
+            // 2 strategies for Idempotent Kafka Consumer
+            // 1) kafka generic ID
+            // String id = record.topic() + "_" + record.partition() + "_" + record.offset();
+            // or
+            // 2) api resource ID
+            String id = extractIdFromApiResource(record.value());
+
             String jsonString = record.value();
 
             if(jsonString == null || jsonString.trim().isEmpty()){
@@ -87,12 +104,14 @@ public class ElasticSearchConsumer
 
             IndexRequest indexRequest = new IndexRequest(
               "producer",
-              "messages"
+              "messages",
+              id  // this id makes our consumer idempotent because even if the message is
+                  // consumed twice by the consumer, it will generate the same id and
+                  // when sent to ElasticSearch it will know to Update instead of Create
             ).source(jsonString, XContentType.JSON);
     
             IndexResponse indexResponse = client.index(indexRequest, RequestOptions.DEFAULT);
-            String id = indexResponse.getId();
-            logger.info(id);
+            logger.info(indexResponse.getId());
             try {
               Thread.sleep(1000);
             } catch (InterruptedException e) {
