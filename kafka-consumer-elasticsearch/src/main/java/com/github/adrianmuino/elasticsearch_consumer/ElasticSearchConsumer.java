@@ -62,7 +62,7 @@ public class ElasticSearchConsumer
       properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
       properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest"); // "latest" - unread msgs only
       properties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false"); // disable auto commit of offsets
-      properties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "10"); // get max 10 records per poll
+      properties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "100"); // get max 100 records per poll
 
       // create the consumer
       KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(properties);
@@ -89,6 +89,12 @@ public class ElasticSearchConsumer
         // poll for new data
         while(true) {
           ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+
+          Integer recordCount = records.count();
+          logger.info("Received " + recordCount + " records");
+
+          BulkRequest bulkRequest = new BulkRequest();
+
           for (ConsumerRecord<String, String> record : records) {
 
             // 2 strategies for Idempotent Kafka Consumer
@@ -96,30 +102,34 @@ public class ElasticSearchConsumer
             // String id = record.topic() + "_" + record.partition() + "_" + record.offset();
             // or
             // 2) api resource ID
-            String id = extractIdFromApiResource(record.value());
 
-            String jsonString = record.value();
-
-            if(jsonString == null || jsonString.trim().isEmpty()){
-              continue;
-            }
-
-            IndexRequest indexRequest = new IndexRequest(
-              "producer",
-              "messages",
-              id  // this id makes our consumer idempotent because even if the message is
-                  // consumed twice by the consumer, it will generate the same id and
-                  // when sent to ElasticSearch it will know to Update instead of Create
-            ).source(jsonString, XContentType.JSON);
-    
-            IndexResponse indexResponse = client.index(indexRequest, RequestOptions.DEFAULT);
-            logger.info(indexResponse.getId());
             try {
-              Thread.sleep(1000);
-            } catch (InterruptedException e) {
-              e.printStackTrace();
-            }
+              String id = extractIdFromApiResource(record.value());
 
+              String jsonString = record.value();
+  
+              if(jsonString == null || jsonString.trim().isEmpty()){
+                continue;
+              }
+  
+              IndexRequest indexRequest = new IndexRequest(
+                "producer",
+                "messages",
+                id  // this id makes our consumer idempotent because even if the message is
+                    // consumed twice by the consumer, it will generate the same id and
+                    // when sent to ElasticSearch it will know to Update instead of Create
+              ).source(jsonString, XContentType.JSON);
+      
+              bulkRequest.add(indexRequest);  // we add to our bulk request (takes no time)
+            } catch (NullPointerException e) {
+              // Catches error in case extractIdFromApiResource() call fails
+              // Good practice in production because not all API resources may have ids
+              logger.warn("skipping bad data: " + record.value());
+            }
+          }
+
+          if (recordCount > 0) {
+            BulkResponse bulkItemResponses = client.bulk(bulkRequest, RequestOptions.DEFAULT);
             logger.info("Commiting offsets...");
             consumer.commitSync();
             logger.info("Offsets have been committed");
