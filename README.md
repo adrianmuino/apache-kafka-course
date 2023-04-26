@@ -27,3 +27,13 @@ kafka-console-consumer.sh --bootstrap-server ubuntu-vm:9092 --topic first_topic 
 ```bash
 kafka-console-producer.sh --bootstrap-server ubuntu-vm:9092 --topic first_topic --producer.config kafka_2.13-3.4.0/config/producer.properties
 ```
+
+## Reset consumer group offset for single topic console
+```bash
+kafka-consumer-groups.sh --bootstrap-server ubuntu-vm:9092 --reset-offsets --to-earliest --execute --group my-first-application --topic first_topic
+```
+
+## Reset consumer group offset for all topics console
+```bash
+kafka-consumer-groups.sh --bootstrap-server ubuntu-vm:9092 --reset-offsets --to-earliest --execute --group my-first-application --all-topics
+```
