@@ -1,5 +1,8 @@
 Two important consumer internal threads:
 
+
+![Consumer Liveliness](../img/consumer_liveliness.png)
+
 1. Poll thread
 2. Heartbeat thread
 

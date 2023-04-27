@@ -1,5 +1,6 @@
 # Kafka Sample Project
 
+![Kafka Concepts](./img/kafka_concepts.png)
 ## Start zookeeper
 ```bash
 zookeeper-server-start.sh kafka_2.13-3.4.0/config/zookeeper.properties
